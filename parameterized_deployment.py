@@ -3,10 +3,10 @@ from prefect import flow, task
 import time
 
 
-# TASK 1
+# TASK 1: EXTRACT
 @task(name="extract_data")
-def extract_data():
-    print("Extracting customer and order data...")
+def extract_data(source):
+    print(f"Extracting customer and order data from source {source}...")
     time.sleep(3)
 
     return {
@@ -15,7 +15,7 @@ def extract_data():
     }
 
 
-# TASK 2
+# TASK 2: VALIDATE
 @task(name="validate_data")
 def validate_data(data):
     print("Validating extracted data...")
@@ -27,7 +27,7 @@ def validate_data(data):
     return data
 
 
-# TASK 3
+# TASK 3: CLEAN CUSTOMERS
 @task(name="clean_customers")
 def clean_customers(data):
     print("Cleaning customer records...")
@@ -36,7 +36,7 @@ def clean_customers(data):
     return [name.upper() for name in data["customers"]]
 
 
-# TASK 4
+# TASK 4: CLEAN ORDERS
 @task(name="clean_orders")
 def clean_orders(data):
     print("Cleaning order records...")
@@ -45,7 +45,7 @@ def clean_orders(data):
     return data["orders"]
 
 
-# TASK 5
+# TASK 5: TRANSFORM CUSTOMERS
 @task(name="transform_customers")
 def transform_customers(customers):
     print("Transforming customer data...")
@@ -54,7 +54,7 @@ def transform_customers(customers):
     return customers
 
 
-# TASK 6
+# TASK 6: TRANSFORM ORDERS
 @task(name="transform_orders")
 def transform_orders(orders):
     print("Transforming order data...")
@@ -63,7 +63,7 @@ def transform_orders(orders):
     return [amount * 1.10 for amount in orders]
 
 
-# TASK 7
+# TASK 7: MERGE
 @task(name="merge_data")
 def merge_data(customers, orders):
     print("Merging customer and order data...")
@@ -75,33 +75,31 @@ def merge_data(customers, orders):
     }
 
 
-# TASK 8
+# TASK 8: CALCULATE METRICS
 @task(name="calculate_metrics")
 def calculate_metrics(data):
     print("Calculating business metrics...")
     time.sleep(3)
 
-    total_sales = sum(data["orders"])
-
     return {
-        "total_sales": total_sales,
+        "total_sales": sum(data["orders"]),
         "total_customers": len(data["customers"])
     }
 
 
-# TASK 9
+# TASK 9: GENERATE REPORT
 @task(name="generate_report")
 def generate_report(metrics):
     print("Generating final report...")
     time.sleep(2)
 
     return f"""
-    Total Sales: {metrics['total_sales']}
-    Total Customers: {metrics['total_customers']}
-    """
+Total Sales: {metrics['total_sales']}
+Total Customers: {metrics['total_customers']}
+"""
 
 
-# TASK 10
+# TASK 10: SAVE REPORT
 @task(name="save_report")
 def save_report(report):
     print("Saving report...")
@@ -117,25 +115,18 @@ def save_report(report):
 @flow(name="run_param_deploy")
 def run_param_deploy(source):
 
-    # Sequential
+    # Sequential extraction and validation
     raw_data = extract_data(source)
 
     validated_data = validate_data(raw_data)
 
-    # Parallel branch 1
+    # Parallel branch 1 and branch 2
     customers = clean_customers.submit(validated_data)
-
-    # Parallel branch 2
     orders = clean_orders.submit(validated_data)
 
     # Each branch continues independently
-    transformed_customers = transform_customers.submit(
-        customers
-    )
-
-    transformed_orders = transform_orders.submit(
-        orders
-    )
+    transformed_customers = transform_customers.submit(customers)
+    transformed_orders = transform_orders.submit(orders)
 
     # Wait for both branches and merge
     merged = merge_data(
@@ -152,6 +143,8 @@ def run_param_deploy(source):
 
     print(result)
 
+    return result
+
 
 if __name__ == "__main__":
-    run_param_deploy()
+    run_param_deploy(source=12)
