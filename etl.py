@@ -1,53 +1,43 @@
 
 from prefect import flow, task
-import requests
+import time
+
+@task(name="load_data")
+def load_data(url):
+    print("Loading data from:", url)
+    time.sleep(5)
+    print("Loaded")
+    return "data loaded"
 
 
-@task(name="Predicts_age")
-def Predicts_age(name: str):
-    url = f"https://api.agify.io/?name={name}"
-
-    response = requests.get(url)
-    response.raise_for_status()
-
-    data = response.json()
-    return data["age"]
+@task(name="normalize_data")
+def normalize_data(data):
+    print("Normalizing the data...")
+    time.sleep(10)
+    print("Normalized")
+    return "data-normalized"
 
 
-@task(name="ISEven")
-def ISEven(age: int):
-    return age % 2 == 0
+@task(name="fill_missing_values")
+def fill_missing_values(data):
+    print("Filling missing values...")
+    time.sleep(4)
+    print("Done filling")
+    return "filled missing values"
 
 
-@task(name="Even_Age")
-def Even_Age(age: int):
-    print(f"{age} is an EVEN age")
+@flow(name="dummy-etl")
+def dummy_etl(url: str):
 
+    loaded_data = load_data(url)
 
-@task(name="Odd_Age")
-def Odd_Age(age: int):
-    print(f"{age} is an ODD age")
+    # Execute these two tasks concurrently
+    norm = normalize_data.submit(loaded_data)
+    cleaned = fill_missing_values.submit(loaded_data)
 
-
-@flow(name="Age-Prediction-Flow")
-def Age_Prediction(name: str):
-
-    # Task 1: Predict age
-    age = Predicts_age(name)
-
-    if age is None:
-        print("Age prediction unavailable")
-        return
-
-    # Task 2: Check condition
-    is_even = ISEven(age)
-
-    # Conditional branching
-    if is_even:
-        Even_Age(age)
-    else:
-        Odd_Age(age)
+    # Collect results
+    return loaded_data + norm.result() + cleaned.result()
 
 
 if __name__ == "__main__":
-    Age_Prediction("jibran")
+    dummy_etl("https://github.com/jibransaleem.git")
